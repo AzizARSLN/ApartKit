@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   addBlankColumn,
   buildPeriodReportHtml,
@@ -33,7 +34,7 @@ export function ReportEditorModal({ input, layout, onSave, onPrint, onClose }: P
     setNewColumn("");
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Raporu düzenle">
       <div className="modal-panel report-editor">
         <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)]">
@@ -191,6 +192,7 @@ export function ReportEditorModal({ input, layout, onSave, onPrint, onClose }: P
           </div>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

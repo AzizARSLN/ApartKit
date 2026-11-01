@@ -662,7 +662,7 @@ table.data tbody tr.is-selected:hover {
 }
 
 .rise {
-  animation: rise-in 260ms ease both;
+  animation: rise-in 260ms ease backwards;
 }
 
 .rise-delay-1 {
