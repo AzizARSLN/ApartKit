@@ -64,6 +64,13 @@
       "when": 1757218800000,
       "tag": "0008_person_management_role",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1757305200000,
+      "tag": "0009_board_decision",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { sites, tenants, units } from "./core.js";
@@ -126,5 +127,29 @@ export const announcements = pgTable(
   (t) => [
     index("ix_announcement_tenant_site").on(t.tenantId, t.siteId),
     index("ix_announcement_status").on(t.siteId, t.status),
+  ],
+);
+
+export const boardDecisions = pgTable(
+  "board_decision",
+  {
+    id: bigint("id", { mode: "number" }).generatedAlwaysAsIdentity().primaryKey(),
+    tenantId: bigint("tenant_id", { mode: "number" })
+      .notNull()
+      .references(() => tenants.id),
+    siteId: bigint("site_id", { mode: "number" })
+      .notNull()
+      .references(() => sites.id),
+    decisionNo: varchar("decision_no", { length: 16 }).notNull(),
+    decisionDate: timestamp("decision_date", { withTimezone: true }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("ACTIVE"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: bigint("created_by", { mode: "number" }),
+  },
+  (t) => [
+    uniqueIndex("ux_board_decision_site_no").on(t.siteId, t.decisionNo),
+    index("ix_board_decision_tenant_site").on(t.tenantId, t.siteId, t.decisionDate),
   ],
 );

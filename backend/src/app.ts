@@ -6,9 +6,11 @@ import Fastify from "fastify";
 import { ZodError } from "zod";
 import { loadEnv } from "./config/env.js";
 import { pool } from "./db/client.js";
+import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { bankingRoutes } from "./modules/banking/banking.routes.js";
 import { billingRoutes } from "./modules/billing/billing.routes.js";
+import { decisionRoutes } from "./modules/decisions/decisions.routes.js";
 import { expenseRoutes } from "./modules/expenses/expenses.routes.js";
 import { operationsRoutes } from "./modules/operations/operations.routes.js";
 import { paymentRoutes } from "./modules/payments/payments.routes.js";
@@ -109,6 +111,8 @@ export async function buildApp() {
       await api.register(reportRoutes);
       await api.register(personnelRoutes);
       await api.register(operationsRoutes);
+      await api.register(auditRoutes);
+      await api.register(decisionRoutes);
     },
     { prefix: "/api/v1" },
   );
