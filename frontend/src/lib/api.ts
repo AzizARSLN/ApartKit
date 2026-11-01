@@ -79,6 +79,37 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+let refreshInFlight: Promise<string | null> | null = null;
+
+/** Süresi dolan access token'ı yeniler; eşzamanlı istekler tek refresh'i paylaşır. */
+function refreshAccessToken(): Promise<string | null> {
+  refreshInFlight ??= (async () => {
+    const session = loadSession();
+    if (!session) return null;
+    try {
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: session.refreshToken }),
+      });
+      if (response.ok) {
+        const tokens = (await response.json()) as { accessToken: string; refreshToken: string };
+        saveSession({ ...session, ...tokens });
+        return tokens.accessToken;
+      }
+      if (response.status !== 401) return null;
+    } catch {
+      return null;
+    }
+    saveSession(null);
+    window.location.assign("/login");
+    return null;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit & { siteId?: number } = {},
@@ -96,10 +127,18 @@ export async function api<T>(
     headers.set("X-Site-Id", String(options.siteId));
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  let response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
+
+  if (response.status === 401 && session?.refreshToken && !path.startsWith("/auth/")) {
+    const accessToken = await refreshAccessToken();
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+      response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    }
+  }
 
   return parseResponse<T>(response);
 }
@@ -114,11 +153,18 @@ export async function apiUpload<T>(
   if (session?.accessToken) {
     headers.set("Authorization", `Bearer ${session.accessToken}`);
   }
-  const response = await fetch(`${API_BASE}${path}`, {
+  let response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers,
     body: form,
   });
+  if (response.status === 401 && session?.refreshToken) {
+    const accessToken = await refreshAccessToken();
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+      response = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: form });
+    }
+  }
   return parseResponse<T>(response);
 }
 
