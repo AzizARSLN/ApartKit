@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ListDetailLayout, ListItemButton } from "../components/ListDetailLayout";
 import { api, formatMoney } from "../lib/api";
-import { expenseStatusLabel, ticketStatusLabel } from "../lib/statusLabels";
+import { expenseStatusLabel } from "../lib/statusLabels";
 
 type ExpensePeriod = {
   period: string;
@@ -341,91 +341,5 @@ export function ExpensesPage() {
         )
       }
     />
-  );
-}
-
-export function PaymentsPage() {
-  return (
-    <div className="space-y-4 rise">
-      <h1 className="text-3xl">Tahsilatlar</h1>
-      <p className="muted max-w-2xl">
-        Manuel nakit tahsilat ve makbuzlar banka ekranındaki toplu akışa ek olarak API üzerinden
-        kullanılabilir. Gelir tahsilatı için banka mutabakatını kullanın.
-      </p>
-      <a className="btn w-fit" href="/finance/bank">
-        Banka mutabakatına git
-      </a>
-    </div>
-  );
-}
-
-export function TicketsPage() {
-  const kurumQuery = useQuery({
-    queryKey: ["kurum-me"],
-    queryFn: () => api<{ id: number; siteId: number | null }>("/kurum/me"),
-  });
-  const siteId = kurumQuery.data?.siteId ?? undefined;
-  const ticketsQuery = useQuery({
-    queryKey: ["tickets", siteId],
-    enabled: !!siteId,
-    queryFn: () =>
-      api<Array<{ id: number; title: string; status: string; priority: string }>>(
-        `/tickets?siteId=${siteId}`,
-      ),
-  });
-
-  const [title, setTitle] = useState("Asansör arızası");
-  const createMutation = useMutation({
-    mutationFn: () =>
-      api("/tickets", {
-        method: "POST",
-        body: JSON.stringify({
-          siteId,
-          title,
-          category: "MAINTENANCE",
-          description: title,
-          priority: "MEDIUM",
-        }),
-      }),
-    onSuccess: async () => {
-      await ticketsQuery.refetch();
-    },
-  });
-
-  return (
-    <div className="space-y-6">
-      <header className="rise">
-        <h1 className="text-3xl">Talepler</h1>
-        <p className="muted mt-2">Şikâyet ve iş talepleri</p>
-      </header>
-      <div className="surface p-5 flex flex-col sm:flex-row gap-3 rise">
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <button className="btn" type="button" onClick={() => createMutation.mutate()}>
-          Talep aç
-        </button>
-      </div>
-      <div className="table-wrap rise">
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Başlık</th>
-              <th>Öncelik</th>
-              <th>Durum</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(ticketsQuery.data ?? []).map((t) => (
-              <tr key={t.id}>
-                <td>{t.title}</td>
-                <td>{t.priority}</td>
-                <td>
-                  <span className="badge">{ticketStatusLabel(t.status)}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }
