@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { db } from "../../db/client.js";
+import { db, pool } from "../../db/client.js";
 import {
   announcements,
   employees,
@@ -10,10 +10,13 @@ import {
   fuelTanks,
   ticketComments,
   tickets,
+  units,
+  users,
 } from "../../db/schema/index.js";
 import { writeAudit } from "../../shared/audit/audit.js";
 import { authenticate, getTenantId, requirePermission } from "../../shared/auth/auth-guards.js";
 import { Permission } from "../../shared/auth/rbac.js";
+import { assertSiteInTenant, assertUnitInSite } from "../../shared/auth/site-scope.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { MoneyStringSchema } from "../../shared/utils/money.js";
 
@@ -45,6 +48,12 @@ const AnnouncementSchema = z.object({
   body: z.string().min(1).max(20000),
   publishedAt: z.coerce.date().optional().nullable(),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
+});
+
+const PatchAnnouncementSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  body: z.string().min(1).max(20000).optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 });
 
 const FuelTankSchema = z.object({
@@ -89,8 +98,21 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       if (query.status) filters.push(eq(tickets.status, query.status));
 
       return db
-        .select()
+        .select({
+          id: tickets.id,
+          siteId: tickets.siteId,
+          unitId: tickets.unitId,
+          unitNo: units.unitNo,
+          title: tickets.title,
+          category: tickets.category,
+          description: tickets.description,
+          status: tickets.status,
+          priority: tickets.priority,
+          assignedEmployeeId: tickets.assignedEmployeeId,
+          createdAt: tickets.createdAt,
+        })
         .from(tickets)
+        .leftJoin(units, eq(units.id, tickets.unitId))
         .where(and(...filters))
         .orderBy(desc(tickets.createdAt));
     },
@@ -102,6 +124,8 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const tenantId = getTenantId(request);
       const body = CreateTicketSchema.parse(request.body);
+      await assertSiteInTenant(tenantId, body.siteId);
+      if (body.unitId != null) await assertUnitInSite(tenantId, body.siteId, body.unitId);
 
       if (body.assignedEmployeeId != null) {
         const [employee] = await db
@@ -129,6 +153,16 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
           createdByUserId: request.authUser.id,
         })
         .returning();
+
+      await writeAudit(db, {
+        tenantId,
+        siteId: body.siteId,
+        userId: request.authUser.id,
+        action: "TICKET_CREATE",
+        entityType: "ticket",
+        entityId: created.id,
+        newData: created,
+      });
 
       return created;
     },
@@ -165,7 +199,40 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         .where(and(eq(tickets.id, id), eq(tickets.tenantId, tenantId)))
         .returning();
 
+      await writeAudit(db, {
+        tenantId,
+        siteId: existing.siteId,
+        userId: request.authUser.id,
+        action: "TICKET_UPDATE",
+        entityType: "ticket",
+        entityId: id,
+        oldData: existing,
+        newData: updated,
+      });
+
       return updated;
+    },
+  );
+
+  app.get(
+    "/tickets/:id/comments",
+    { preHandler: [authenticate, requirePermission(Permission.TICKET_MANAGE)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
+
+      return db
+        .select({
+          id: ticketComments.id,
+          body: ticketComments.body,
+          createdAt: ticketComments.createdAt,
+          authorName: users.fullName,
+        })
+        .from(ticketComments)
+        .innerJoin(tickets, eq(tickets.id, ticketComments.ticketId))
+        .leftJoin(users, eq(users.id, ticketComments.createdBy))
+        .where(and(eq(ticketComments.ticketId, id), eq(tickets.tenantId, tenantId)))
+        .orderBy(asc(ticketComments.createdAt));
     },
   );
 
@@ -226,6 +293,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const tenantId = getTenantId(request);
       const body = AnnouncementSchema.parse(request.body);
+      await assertSiteInTenant(tenantId, body.siteId);
 
       const [created] = await db
         .insert(announcements)
@@ -257,6 +325,111 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  app.patch(
+    "/announcements/:id",
+    { preHandler: [authenticate, requirePermission(Permission.ANNOUNCEMENT_WRITE)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
+      const body = PatchAnnouncementSchema.parse(request.body);
+
+      const [existing] = await db
+        .select()
+        .from(announcements)
+        .where(and(eq(announcements.id, id), eq(announcements.tenantId, tenantId)))
+        .limit(1);
+      if (!existing) throw new AppError("NOT_FOUND", "Duyuru bulunamadı.", 404);
+
+      const [updated] = await db
+        .update(announcements)
+        .set({
+          title: body.title ?? existing.title,
+          body: body.body ?? existing.body,
+          status: body.status ?? existing.status,
+          publishedAt:
+            body.status === "PUBLISHED" && !existing.publishedAt
+              ? new Date()
+              : existing.publishedAt,
+        })
+        .where(eq(announcements.id, id))
+        .returning();
+
+      await writeAudit(db, {
+        tenantId,
+        siteId: existing.siteId,
+        userId: request.authUser.id,
+        action: "ANNOUNCEMENT_UPDATE",
+        entityType: "announcement",
+        entityId: id,
+        oldData: existing,
+        newData: updated,
+      });
+
+      return updated;
+    },
+  );
+
+  app.get(
+    "/fuel/overview",
+    { preHandler: [authenticate, requirePermission(Permission.SITE_READ)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const { siteId } = z
+        .object({ siteId: z.coerce.number().int().positive() })
+        .parse(request.query);
+
+      const result = await pool.query<{
+        id: string;
+        fuel_type: string;
+        unit: string;
+        capacity: string;
+        minimum_stock: string;
+        purchased: string;
+        consumed: string;
+        consumed_30d: string;
+      }>(
+        `
+        SELECT
+          t.id, t.fuel_type, t.unit, t.capacity::text, t.minimum_stock::text,
+          COALESCE(p.total, 0)::text AS purchased,
+          COALESCE(c.total, 0)::text AS consumed,
+          COALESCE(c.last_30, 0)::text AS consumed_30d
+        FROM fuel_tank t
+        LEFT JOIN (
+          SELECT fuel_tank_id, SUM(quantity) AS total FROM fuel_purchase GROUP BY fuel_tank_id
+        ) p ON p.fuel_tank_id = t.id
+        LEFT JOIN (
+          SELECT
+            fuel_tank_id,
+            SUM(quantity) AS total,
+            SUM(quantity) FILTER (WHERE consumption_date >= now() - interval '30 days') AS last_30
+          FROM fuel_consumption
+          GROUP BY fuel_tank_id
+        ) c ON c.fuel_tank_id = t.id
+        WHERE t.tenant_id = $1 AND t.site_id = $2
+        ORDER BY t.fuel_type
+        `,
+        [tenantId, siteId],
+      );
+
+      return result.rows.map((row) => {
+        const remaining = Math.max(0, Number(row.purchased) - Number(row.consumed));
+        const dailyAverage = Number(row.consumed_30d) / 30;
+        return {
+          id: Number(row.id),
+          fuelType: row.fuel_type,
+          unit: row.unit,
+          capacity: row.capacity,
+          minimumStock: row.minimum_stock,
+          remainingStock: remaining.toFixed(3),
+          dailyAverage: dailyAverage.toFixed(3),
+          daysRemaining: dailyAverage > 0 ? Math.floor(remaining / dailyAverage) : null,
+          isLow: remaining <= Number(row.minimum_stock),
+        };
+      });
+    },
+  );
+
   app.get(
     "/fuel/tanks",
     { preHandler: [authenticate, requirePermission(Permission.SITE_READ)] },
@@ -282,6 +455,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const tenantId = getTenantId(request);
       const body = FuelTankSchema.parse(request.body);
+      await assertSiteInTenant(tenantId, body.siteId);
 
       const [created] = await db
         .insert(fuelTanks)
