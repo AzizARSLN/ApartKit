@@ -683,6 +683,31 @@ table.data tbody tr.is-selected:hover {
   background: var(--chart-1);
 }
 
+.login-windows {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(44, 52px);
+  grid-auto-rows: 72px;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+  mask-image: radial-gradient(circle at 0% 100%, transparent 28%, #000 62%);
+}
+
+.login-windows i {
+  border-radius: 3px;
+  background: #1e1d29;
+}
+
+.login-windows i.is-lit {
+  background: #f6e7c8;
+}
+
+.login-windows i.is-warm {
+  background: #e2502c;
+}
+
 .login-page {
   --accent: var(--ink);
   --accent-strong: var(--ink-soft);
