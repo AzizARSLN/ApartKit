@@ -28,6 +28,8 @@
   --border: var(--line);
   --shadow: 0 1px 2px rgba(23, 22, 31, 0.04), 0 10px 30px rgba(23, 22, 31, 0.05);
   --shadow-lg: 0 24px 70px rgba(23, 22, 31, 0.24);
+  --chart-1: #5546e8;
+  --chart-2: #e2502c;
   --radius: 16px;
   --radius-sm: 10px;
   --font-sans: "Geist", "Segoe UI", sans-serif;
@@ -55,6 +57,8 @@
   --accent-soft: #2a2650;
   --accent-tint: rgba(141, 129, 255, 0.1);
   --on-accent: #12101f;
+  --chart-1: #7f72f2;
+  --chart-2: #e45f3d;
   --warm: #ff7a57;
   --warm-strong: #ff9477;
   --warm-soft: #3c2018;
@@ -363,8 +367,16 @@ table.data tbody tr.is-selected:hover {
   border-right: 1px solid var(--line);
 }
 
+.report-preview-wrap {
+  min-width: 0;
+  overflow: auto;
+  background: #fff;
+}
+
 .report-preview {
+  display: block;
   width: 100%;
+  min-width: 1040px;
   height: 100%;
   border: 0;
   background: #fff;
@@ -395,6 +407,240 @@ table.data tbody tr.is-selected:hover {
   resize: vertical;
 }
 
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+
+.app-nav-group {
+  display: contents;
+}
+
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  transition: background 120ms ease;
+}
+
+.app-nav-link:hover {
+  background: var(--accent-tint);
+}
+
+.app-nav-link.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.app-sidebar-foot {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app-main {
+  min-width: 0;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.page {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.money-figure {
+  margin-top: 0.3rem;
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-steps {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.chart-charged {
+  background: var(--chart-1);
+}
+
+.chart-collected {
+  background: var(--chart-2);
+}
+
+.chart-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.monthly-chart {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 2px;
+  height: 200px;
+  border-bottom: 0;
+}
+
+.monthly-group {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+
+.monthly-group:hover {
+  background: var(--accent-tint);
+}
+
+.monthly-bars {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.monthly-bars i {
+  display: block;
+  width: min(42%, 14px);
+  border-radius: 4px 4px 0 0;
+}
+
+.monthly-label {
+  padding-top: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.aging-row {
+  display: grid;
+  grid-template-columns: 6rem 1fr 8rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.aging-track {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-sunken);
+}
+
+.aging-track i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--chart-1);
+}
+
+.login-hero {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+@media (min-width: 640px) {
+  .flow-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+
+  .app-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .app-nav {
+    flex: 1;
+    flex-direction: column;
+    gap: 0.9rem;
+    overflow: hidden auto;
+  }
+
+  .app-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .app-main {
+    padding: 1.75rem 2rem 3rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-nav .section-label {
+    display: none;
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: 100% 0;
@@ -411,7 +657,7 @@ table.data tbody tr.is-selected:hover {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 

@@ -1,169 +1,152 @@
-import { useQuery } from "@tanstack/react-query";
+import {
+  Banknote,
+  BarChart3,
+  Building2,
+  ClipboardList,
+  Fuel,
+  Gavel,
+  History,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  Moon,
+  Receipt,
+  Settings,
+  Sun,
+  UserCog,
+  Users,
+  Wallet,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { api, formatMoney } from "../lib/api";
+import { useKurum } from "../lib/useSite";
 
-const nav = [
-  { to: "/dashboard", label: "Özet" },
-  { to: "/finance/bank", label: "Banka" },
-  { to: "/finance/charges", label: "Tahakkuk" },
-  { to: "/finance/expenses", label: "Gider" },
-  { to: "/management/units", label: "Daireler" },
-  { to: "/management/residents", label: "Sakinler" },
-  { to: "/operations/tickets", label: "Talepler" },
-  { to: "/settings", label: "Kurum" },
+type NavItem = { to: string; label: string; icon: LucideIcon };
+
+const navGroups: Array<{ label: string; items: NavItem[] }> = [
+  { label: "Genel", items: [{ to: "/dashboard", label: "Özet", icon: LayoutDashboard }] },
+  {
+    label: "Finans",
+    items: [
+      { to: "/finance/charges", label: "Aidat ve tahakkuk", icon: Receipt },
+      { to: "/finance/bank", label: "Banka mutabakatı", icon: Landmark },
+      { to: "/finance/payments", label: "Tahsilatlar", icon: Banknote },
+      { to: "/finance/expenses", label: "Giderler", icon: Wallet },
+      { to: "/finance/reports", label: "Raporlar", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Site",
+    items: [
+      { to: "/management/units", label: "Daireler", icon: Building2 },
+      { to: "/management/residents", label: "Sakinler", icon: Users },
+      { to: "/management/employees", label: "Personel", icon: UserCog },
+    ],
+  },
+  {
+    label: "Operasyon",
+    items: [
+      { to: "/operations/tickets", label: "Talepler", icon: Wrench },
+      { to: "/operations/fuel", label: "Yakıt", icon: Fuel },
+      { to: "/communication/announcements", label: "Duyurular", icon: Megaphone },
+      { to: "/communication/decisions", label: "Karar defteri", icon: Gavel },
+    ],
+  },
+  {
+    label: "Yönetim",
+    items: [
+      { to: "/settings", label: "Kurum", icon: Settings },
+      { to: "/settings/audit", label: "İşlem geçmişi", icon: History },
+    ],
+  },
 ];
+
+const THEME_KEY = "apartkit.theme";
+
+function initialTheme(): "light" | "dark" {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {
+    // Tarayıcı depolaması kapalıysa sistem tercihi kullanılır.
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function useTheme() {
+  const [theme, setTheme] = useState(initialTheme);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Tercih yalnızca bu oturumda geçerli kalır.
+    }
+  }, [theme]);
+  return { theme, toggle: () => setTheme(theme === "dark" ? "light" : "dark") };
+}
 
 export function AppLayout() {
   const { session, logout } = useAuth();
   const location = useLocation();
-  const kurumQuery = useQuery({
-    queryKey: ["kurum"],
-    queryFn: () => api<{ name: string; code: string }>("/kurum/me"),
-    enabled: !!session,
-  });
+  const { theme, toggle } = useTheme();
+  const kurumQuery = useKurum();
 
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="surface m-3 mb-0 lg:mb-3 p-5 flex flex-col gap-6">
-        <div className="rise">
-          <div className="brand text-2xl text-[var(--accent-strong)]">
-            {kurumQuery.data?.name ?? "Site Yönetim"}
+    <div className="app-shell">
+      <aside className="app-sidebar">
+        <div className="flex items-center gap-2.5 px-2">
+          <span className="brand-mark" aria-hidden>
+            <ClipboardList size={18} />
+          </span>
+          <div className="min-w-0">
+            <div className="brand text-lg leading-tight truncate">ApartKit</div>
+            <div className="muted text-xs truncate">{kurumQuery.data?.name ?? session.user.fullName}</div>
           </div>
-          <p className="muted text-sm mt-1">{session.user.fullName}</p>
         </div>
-        <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `rounded-[14px] px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition ${
-                  isActive
-                    ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                    : "hover:bg-white/60 text-[var(--ink-soft)]"
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
+
+        <nav className="app-nav" aria-label="Ana menü">
+          {navGroups.map((group) => (
+            <div key={group.label} className="app-nav-group">
+              <div className="section-label px-2 mb-1 hide-mobile">{group.label}</div>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/settings"}
+                  className={({ isActive }) => `app-nav-link ${isActive ? "is-active" : ""}`}
+                >
+                  <item.icon size={17} aria-hidden />
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
-        <button className="btn btn-ghost mt-auto" type="button" onClick={logout}>
-          Çıkış yap
-        </button>
+
+        <div className="app-sidebar-foot">
+          <button
+            className="btn btn-ghost btn-icon"
+            type="button"
+            aria-label={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
+            onClick={toggle}
+          >
+            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
+          <button className="btn btn-ghost flex-1" type="button" onClick={logout}>
+            <LogOut size={16} aria-hidden /> Çıkış yap
+          </button>
+        </div>
       </aside>
-      <main className="p-4 md:p-8">
+      <main className="app-main">
         <Outlet />
       </main>
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  hint,
-  className = "",
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  className?: string;
-}) {
-  return (
-    <div className={`surface-solid p-5 rise ${className}`}>
-      <div className="muted text-sm">{label}</div>
-      <div className="text-2xl md:text-3xl mt-2 font-bold tracking-tight">{value}</div>
-      {hint ? <div className="muted text-xs mt-2">{hint}</div> : null}
-    </div>
-  );
-}
-
-export function DashboardPage() {
-  const kurumQuery = useQuery({
-    queryKey: ["kurum"],
-    queryFn: () =>
-      api<{ id: number; name: string; code: string; siteId: number | null }>("/kurum/me"),
-  });
-
-  const siteId = kurumQuery.data?.siteId ?? undefined;
-  const dashQuery = useQuery({
-    queryKey: ["dashboard", siteId],
-    enabled: !!siteId,
-    queryFn: () =>
-      api<{
-        chargeTotalThisMonth: string;
-        paymentTotalThisMonth: string;
-        openDebt: string;
-        overdue: string;
-        unitCount: number;
-      }>(`/reports/dashboard?siteId=${siteId}`),
-  });
-
-  const charge = Number(dashQuery.data?.chargeTotalThisMonth ?? 0);
-  const payment = Number(dashQuery.data?.paymentTotalThisMonth ?? 0);
-  const rate = charge > 0 ? `${((payment / charge) * 100).toFixed(0)}%` : "—";
-
-  return (
-    <div className="space-y-6">
-      <header className="rise flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <p className="badge mb-3">{kurumQuery.data?.name ?? "Kurum"}</p>
-          <h1 className="text-3xl md:text-4xl">Bugünün finansal nabzı</h1>
-          <p className="muted mt-2 max-w-xl">
-            Aidat, tahsilat ve banka mutabakatını tek bakışta izleyin.
-          </p>
-        </div>
-        <NavLink to="/finance/bank" className="btn btn-warm w-fit">
-          Banka mutabakatına git
-        </NavLink>
-      </header>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Metric
-          className="rise-delay-1"
-          label="Bu ay tahakkuk"
-          value={dashQuery.isLoading ? "…" : formatMoney(dashQuery.data?.chargeTotalThisMonth)}
-        />
-        <Metric
-          className="rise-delay-1"
-          label="Bu ay tahsilat"
-          value={dashQuery.isLoading ? "…" : formatMoney(dashQuery.data?.paymentTotalThisMonth)}
-        />
-        <Metric
-          className="rise-delay-2"
-          label="Açık borç"
-          value={dashQuery.isLoading ? "…" : formatMoney(dashQuery.data?.openDebt)}
-        />
-        <Metric
-          label="Vadesi geçmiş"
-          value={dashQuery.isLoading ? "…" : formatMoney(dashQuery.data?.overdue)}
-        />
-        <Metric label="Daire sayısı" value={String(dashQuery.data?.unitCount ?? "…")} />
-        <Metric label="Tahsilat oranı" value={rate} hint="Bu ay tahsilat / tahakkuk" />
-      </div>
-
-      <section className="surface p-5 rise">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="text-xl">Kurum</h2>
-          <span className="badge">{kurumQuery.data?.code ?? "—"}</span>
-        </div>
-        {kurumQuery.isLoading ? <div className="skeleton h-10" /> : null}
-        {kurumQuery.data ? (
-          <div className="py-2 flex items-center justify-between gap-3">
-            <div>
-              <div className="font-semibold">{kurumQuery.data.name}</div>
-              <div className="muted text-sm">Kod: {kurumQuery.data.code}</div>
-            </div>
-            <NavLink className="btn btn-sm btn-ghost" to="/settings">
-              Düzenle
-            </NavLink>
-          </div>
-        ) : null}
-      </section>
     </div>
   );
 }
