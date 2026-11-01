@@ -37,6 +37,15 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): Env {
     console.error("Invalid environment configuration", details);
     process.exit(1);
   }
+  if (parsed.data.NODE_ENV === "production") {
+    const weak = (["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"] as const).filter((key) =>
+      /^(change-me|dev-)/.test(parsed.data[key]),
+    );
+    if (weak.length > 0 || parsed.data.CORS_ORIGIN === "*") {
+      console.error("Unsafe production configuration", { weakSecrets: weak, cors: parsed.data.CORS_ORIGIN });
+      process.exit(1);
+    }
+  }
   cached = parsed.data;
   return cached;
 }

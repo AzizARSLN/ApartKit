@@ -47,7 +47,7 @@ const ALL_READ_WRITE: Permission[] = Object.values(Permission);
 
 const ROLE_PERMISSIONS: Record<SystemRole, Permission[]> = {
   SUPER_ADMIN: ALL_READ_WRITE,
-  TENANT_ADMIN: ALL_READ_WRITE.filter((p) => p !== Permission.TENANT_WRITE || true),
+  TENANT_ADMIN: ALL_READ_WRITE,
   SITE_MANAGER: [
     Permission.SITE_READ,
     Permission.SITE_WRITE,
