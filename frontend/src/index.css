@@ -785,20 +785,27 @@ table.data tbody tr.is-selected:hover {
 
 @media (min-width: 900px) {
   .login-page {
-    flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    gap: 3rem;
-    padding: 3rem clamp(3rem, 6vw, 6rem);
+    justify-content: center;
+    gap: 1.75rem;
+    padding: 2.5rem;
   }
 
   .login-windows {
-    mask-image: radial-gradient(circle at 0% 100%, transparent 28%, #000 62%);
+    mask-image: radial-gradient(circle at 50% 50%, transparent 32%, #000 68%);
   }
 
   .login-intro {
-    align-self: flex-end;
     padding: 0;
+    text-align: center;
+  }
+
+  .login-intro p {
+    margin-inline: auto;
+  }
+
+  .login-wordmark {
+    font-size: 3.5rem;
   }
 
   .login-sheet {
