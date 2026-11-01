@@ -29,11 +29,8 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <WindowGrid level={email.length + password.length} />
-      <div className="login-intro">
-        <div className="brand login-wordmark">ApartKit</div>
-        <p>Aidat, banka ekstresi, talepler. Apartmanın işleri tek defterde.</p>
-      </div>
       <main className="login-sheet">
+        <div className="brand login-wordmark">ApartKit</div>
         <form onSubmit={onSubmit} className="login-form">
           <h1>Giriş yap</h1>
           <label className="login-field">

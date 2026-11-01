@@ -701,28 +701,23 @@ table.data tbody tr.is-selected:hover {
   gap: 12px;
   padding: 12px;
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, #000 12%, transparent 34%);
 }
 
 .login-windows i {
   border-radius: 3px;
-  background: #1e1d29;
+  background: rgba(255, 255, 255, 0.045);
   transition: background 320ms ease;
 }
 
 .login-windows i.is-lit {
-  background: #f6e7c8;
+  background: rgba(246, 231, 200, 0.72);
 }
 
 .login-windows i.is-warm {
-  background: #e2502c;
+  background: rgba(226, 80, 44, 0.72);
 }
 
 .login-page {
-  --accent: var(--ink);
-  --accent-strong: var(--ink-soft);
-  --accent-tint: var(--line);
-  --on-accent: var(--bg);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -733,31 +728,36 @@ table.data tbody tr.is-selected:hover {
   background: #121118;
 }
 
-.login-intro {
-  position: relative;
-  padding: 3rem 16px 1.25rem;
-  color: #f5f4ef;
-}
-
-.login-intro p {
-  max-width: 24rem;
-  margin: 0.5rem 0 0;
-  line-height: 1.4;
-  opacity: 0.8;
-}
-
 .login-wordmark {
-  font-size: clamp(2.75rem, 8vw, 6.5rem);
-  line-height: 1;
-  letter-spacing: -0.045em;
+  margin-bottom: 1.25rem;
+  font-size: 1.15rem;
 }
 
 .login-sheet {
+  --ink: #f5f4ef;
+  --muted: #cfcdda;
+  --line: rgba(255, 255, 255, 0.2);
+  --surface: rgba(255, 255, 255, 0.08);
+  --accent: #f5f4ef;
+  --accent-strong: #ffffff;
+  --accent-tint: rgba(255, 255, 255, 0.16);
+  --on-accent: #121118;
+  --danger: #ff8fa7;
   position: relative;
   padding: 1.75rem 16px 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 0;
   border-radius: 20px 20px 0 0;
-  background: var(--surface);
+  background: rgba(22, 21, 30, 0.66);
   color: var(--ink);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.login-sheet input:-webkit-autofill {
+  -webkit-text-fill-color: #f5f4ef;
+  caret-color: #f5f4ef;
+  box-shadow: inset 0 0 0 100px #2b2a35;
 }
 
 .login-form {
@@ -796,31 +796,14 @@ table.data tbody tr.is-selected:hover {
   .login-page {
     align-items: center;
     justify-content: center;
-    gap: 1.75rem;
     padding: 2.5rem;
-  }
-
-  .login-windows {
-    mask-image: radial-gradient(circle at 50% 50%, transparent 32%, #000 68%);
-  }
-
-  .login-intro {
-    padding: 0;
-    text-align: center;
-  }
-
-  .login-intro p {
-    margin-inline: auto;
-  }
-
-  .login-wordmark {
-    font-size: 3.5rem;
   }
 
   .login-sheet {
     flex: none;
     width: 400px;
     padding: 2.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 20px;
     box-shadow: var(--shadow-lg);
   }
