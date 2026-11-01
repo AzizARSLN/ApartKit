@@ -172,7 +172,9 @@ export function ReportEditorModal({ input, layout, onSave, onPrint, onClose }: P
             </section>
           </aside>
 
-          <iframe className="report-preview" title="Rapor önizleme" sandbox="" srcDoc={previewHtml} />
+          <div className="report-preview-wrap">
+            <iframe className="report-preview" title="Rapor önizleme" sandbox="" srcDoc={previewHtml} />
+          </div>
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t border-[var(--line)]">

@@ -317,8 +317,8 @@ export function buildPeriodReportHtml(input: ReportInput, layout: ReportLayout):
     body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; color: #111; background: #fff; margin: 0; padding: 8px 12px 16px; font-size: 11px; }
     h1 { margin: 0; text-align: center; font-size: 16px; letter-spacing: 0.02em; }
     h2 { margin: 2px 0 10px; text-align: center; font-size: 15px; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { border: 1px solid #222; padding: 3px 4px; vertical-align: middle; overflow-wrap: anywhere; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #222; padding: 3px 4px; vertical-align: middle; }
     th { background: #f3f3f3; font-size: 9px; line-height: 1.2; text-align: center; font-weight: 700; }
     td.c { text-align: center; font-weight: 600; }
     td.r { text-align: right; white-space: nowrap; }

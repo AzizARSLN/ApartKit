@@ -766,7 +766,7 @@ export function ChargesPage() {
       <header className="rise flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="badge mb-3">Tahakkuk</p>
-          <h1 className="text-3xl md:text-4xl">Dönem tahakkukları</h1>
+          <h1 className="text-2xl md:text-3xl">Dönem tahakkukları</h1>
           <p className="muted mt-2 max-w-2xl">
             Soldan dönem seçin. Yeni dönemde önceki kalan borç, daire bazında “Diğer” kalemine
             devredilir.
