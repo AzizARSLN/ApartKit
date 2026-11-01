@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, type DbTransaction } from "../../db/client.js";
@@ -17,6 +17,11 @@ import { writeAudit } from "../../shared/audit/audit.js";
 import { authenticate, getTenantId, requirePermission } from "../../shared/auth/auth-guards.js";
 import { Permission } from "../../shared/auth/rbac.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import {
+  paginatedResult,
+  paginationOffset,
+  PaginationQuerySchema,
+} from "../../shared/pagination/pagination.js";
 import { Money, MoneyStringSchema, money, moneyToString } from "../../shared/utils/money.js";
 import { nextChargeStatus, planOldestFirst, planUserSelected } from "./allocation.js";
 
@@ -89,6 +94,41 @@ async function nextReceiptNo(
 }
 
 export async function paymentRoutes(app: FastifyInstance): Promise<void> {
+  app.get(
+    "/payments",
+    { preHandler: [authenticate, requirePermission(Permission.REPORT_FINANCE)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const query = PaginationQuerySchema.extend({
+        siteId: z.coerce.number().int().positive(),
+      }).parse(request.query);
+      const { limit, offset } = paginationOffset(query);
+      const where = and(eq(payments.tenantId, tenantId), eq(payments.siteId, query.siteId));
+
+      const [totalRow] = await db.select({ value: count() }).from(payments).where(where);
+      const items = await db
+        .select({
+          id: payments.id,
+          paymentDate: payments.paymentDate,
+          amount: payments.amount,
+          paymentMethod: payments.paymentMethod,
+          description: payments.description,
+          status: payments.status,
+          unitNo: units.unitNo,
+          receiptNo: receipts.receiptNo,
+        })
+        .from(payments)
+        .innerJoin(units, eq(units.id, payments.unitId))
+        .leftJoin(receipts, eq(receipts.paymentId, payments.id))
+        .where(where)
+        .orderBy(desc(payments.paymentDate), desc(payments.id))
+        .limit(limit)
+        .offset(offset);
+
+      return paginatedResult(items, Number(totalRow?.value ?? 0), query);
+    },
+  );
+
   app.post(
     "/payments/preview",
     { preHandler: [authenticate, requirePermission(Permission.PAYMENT_PREVIEW)] },

@@ -23,6 +23,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         open_debt: string;
         overdue: string;
         unit_count: string;
+        pending_bank_count: string;
+        open_ticket_count: string;
       }>(
         `
         SELECT
@@ -63,7 +65,22 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
             WHERE u.tenant_id = $1
               AND u.site_id = $2
               AND u.status = 'ACTIVE'
-          ), '0') AS unit_count
+          ), '0') AS unit_count,
+          (
+            SELECT COUNT(*)::text
+            FROM bank_transaction b
+            WHERE b.tenant_id = $1
+              AND b.site_id = $2
+              AND b.direction = 'IN'
+              AND b.match_status IN ('UNMATCHED', 'SUGGESTED', 'REVIEW_REQUIRED')
+          ) AS pending_bank_count,
+          (
+            SELECT COUNT(*)::text
+            FROM ticket t
+            WHERE t.tenant_id = $1
+              AND t.site_id = $2
+              AND t.status IN ('OPEN', 'IN_PROGRESS')
+          ) AS open_ticket_count
         `,
         [tenantId, siteId],
       );
@@ -78,6 +95,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         openDebt: row.open_debt ?? "0",
         overdue: row.overdue ?? "0",
         unitCount: Number(row.unit_count ?? 0),
+        pendingBankCount: Number(row.pending_bank_count ?? 0),
+        openTicketCount: Number(row.open_ticket_count ?? 0),
       };
     },
   );
@@ -140,6 +159,122 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
           "180+": row.bucket_180_plus ?? "0",
         },
       };
+    },
+  );
+
+  app.get(
+    "/reports/debtors",
+    { preHandler: [authenticate, requirePermission(Permission.REPORT_FINANCE)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const { siteId } = SiteQuerySchema.parse(request.query);
+
+      const result = await pool.query<{
+        unit_id: string;
+        unit_no: string;
+        resident_name: string | null;
+        open_amount: string;
+        overdue_amount: string;
+        oldest_due_date: Date;
+      }>(
+        `
+        SELECT
+          u.id AS unit_id,
+          u.unit_no,
+          resident.name AS resident_name,
+          SUM(c.open_amount)::text AS open_amount,
+          COALESCE(SUM(c.open_amount) FILTER (WHERE c.due_date < now()), 0)::text AS overdue_amount,
+          MIN(c.due_date) AS oldest_due_date
+        FROM charge c
+        JOIN unit u ON u.id = c.unit_id
+        LEFT JOIN LATERAL (
+          SELECT p.first_name || ' ' || p.last_name AS name
+          FROM (
+            SELECT person_id, start_date FROM unit_occupancy
+            WHERE unit_id = u.id AND tenant_id = $1 AND end_date IS NULL
+            UNION ALL
+            SELECT person_id, start_date FROM unit_ownership
+            WHERE unit_id = u.id AND tenant_id = $1 AND end_date IS NULL
+          ) links
+          JOIN person p ON p.id = links.person_id
+          ORDER BY links.start_date DESC
+          LIMIT 1
+        ) resident ON true
+        WHERE c.tenant_id = $1
+          AND c.site_id = $2
+          AND c.status IN ('OPEN', 'PARTIAL')
+          AND c.open_amount > 0
+        GROUP BY u.id, u.unit_no, resident.name
+        ORDER BY SUM(c.open_amount) DESC
+        LIMIT 200
+        `,
+        [tenantId, siteId],
+      );
+
+      return result.rows.map((row) => ({
+        unitId: Number(row.unit_id),
+        unitNo: row.unit_no,
+        residentName: row.resident_name,
+        openAmount: row.open_amount,
+        overdueAmount: row.overdue_amount,
+        oldestDueDate: row.oldest_due_date,
+      }));
+    },
+  );
+
+  app.get(
+    "/reports/monthly",
+    { preHandler: [authenticate, requirePermission(Permission.REPORT_FINANCE)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const { siteId } = SiteQuerySchema.parse(request.query);
+
+      const result = await pool.query<{
+        period: string;
+        charged: string;
+        collected: string;
+        spent: string;
+      }>(
+        `
+        WITH months AS (
+          SELECT to_char(m, 'YYYY-MM') AS period
+          FROM generate_series(
+            date_trunc('month', now()) - interval '11 months',
+            date_trunc('month', now()),
+            interval '1 month'
+          ) m
+        ),
+        charged AS (
+          SELECT period, SUM(amount) AS total FROM charge
+          WHERE tenant_id = $1 AND site_id = $2
+            AND status NOT IN ('CANCELLED', 'CARRIED_FORWARD')
+          GROUP BY period
+        ),
+        collected AS (
+          SELECT to_char(payment_date, 'YYYY-MM') AS period, SUM(amount) AS total FROM payment
+          WHERE tenant_id = $1 AND site_id = $2 AND status = 'POSTED'
+          GROUP BY 1
+        ),
+        spent AS (
+          SELECT to_char(expense_date, 'YYYY-MM') AS period, SUM(amount) AS total FROM expense
+          WHERE tenant_id = $1 AND site_id = $2 AND status <> 'CANCELLED'
+          GROUP BY 1
+        )
+        SELECT
+          m.period,
+          COALESCE(ch.total, 0)::text AS charged,
+          COALESCE(co.total, 0)::text AS collected,
+          COALESCE(sp.total, 0)::text AS spent
+        FROM months m
+        LEFT JOIN charged ch ON ch.period = m.period
+        LEFT JOIN collected co ON co.period = m.period
+        LEFT JOIN spent sp ON sp.period = m.period
+        ORDER BY m.period
+        `,
+        [tenantId, siteId],
+      );
+
+      return result.rows;
     },
   );
 }
