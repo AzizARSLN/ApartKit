@@ -23,4 +23,4 @@ COPY --from=build /app/src ./src
 COPY drizzle.config.ts tsconfig.json ./
 RUN mkdir -p /app/data/uploads
 EXPOSE 3000
-CMD ["sh", "-c", "npx tsx src/db/migrate.ts && node dist/server.js"]
+CMD ["sh", "-c", "npx tsx src/db/migrate.ts && if [ \"$RUN_SEED_ON_START\" = \"true\" ]; then npx tsx src/db/seed.ts; fi && node dist/server.js"]
