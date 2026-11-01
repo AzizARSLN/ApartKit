@@ -90,7 +90,7 @@ export function ListItemButton({
       className={`w-full text-left rounded-[12px] border px-3 py-2.5 transition ${
         selected
           ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[inset_3px_0_0_var(--accent)]"
-          : "border-transparent hover:bg-[rgba(15,122,108,0.06)]"
+          : "border-transparent hover:bg-[var(--accent-tint)]"
       }`}
     >
       <div className="flex items-start justify-between gap-2">

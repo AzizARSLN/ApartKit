@@ -6,8 +6,8 @@ Modular monolith — Node.js (Fastify) + React (Vite) + PostgreSQL.
 
 ## Dokümantasyon
 
-- Spec: kökteki `00`–`09`
-- Mimari: `docs/architecture/`
+
+
 
 ## Hızlı başlangıç
 
