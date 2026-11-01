@@ -1,0 +1,1 @@
+ALTER TABLE "charge" ADD COLUMN IF NOT EXISTS "note" text;
