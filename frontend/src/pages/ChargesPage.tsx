@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, apiUpload, formatMoney } from "../lib/api";
+import { ReportEditorModal } from "../components/ReportEditorModal";
+import {
+  buildPeriodReportHtml,
+  defaultReportLayout,
+  parseReportLayout,
+  type ReportInput,
+  type ReportLayout,
+} from "../lib/periodReport";
 import { printHtmlDocument } from "../lib/printHtml";
 
 type Kurum = { id: number; name: string; siteId: number | null };
@@ -178,237 +186,30 @@ function nextMonthDay(period: string, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function formatMoneyTr(value: string | number, blankZero = true): string {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "";
-  if (blankZero && n === 0) return "";
-  return n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function reportLayoutKey(siteId: number | undefined): string {
+  return `apartkit.periodReport.v1.${siteId ?? "default"}`;
 }
 
-function formatDateTr(value: string | Date | null | undefined): string {
-  if (!value) return "";
-  const d = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return "";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}.${mm}.${yyyy}`;
-}
-
-function formatIbanSpaced(iban: string): string {
-  return iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
-}
-
-function accountNoFromIban(iban: string): string {
-  const digits = iban.replace(/\D/g, "");
-  if (digits.length >= 7) return digits.slice(-7);
-  return digits || "—";
-}
-
-function aidatCellLabel(row: StatementRow): string {
-  if (row.managementRole === "MANAGER") return "YÖNETİCİ";
-  if (row.managementRole === "ASSISTANT_MANAGER") return "YÖNETİCİ YRD";
-  return formatMoneyTr(row.aidatAmount);
-}
-
-function firstDue(
-  rows: StatementRow[],
-  key: "aidatDueDate" | "yakitDueDate" | "digerDueDate" | "dueDate",
-): string {
-  for (const row of rows) {
-    const v = row[key];
-    if (v) return formatDateTr(v);
+function loadReportLayout(siteId: number | undefined): ReportLayout {
+  try {
+    return parseReportLayout(localStorage.getItem(reportLayoutKey(siteId)));
+  } catch {
+    return defaultReportLayout();
   }
-  return "";
 }
 
-function printPeriodStatement(opts: {
-  kurumName: string;
-  period: string;
-  statement: PeriodStatement;
-  bankAccount: BankAccount | null;
-}): void {
-  const { kurumName, period, statement, bankAccount } = opts;
-  const latePct = Number(statement.lateFeeRatePercent || 0);
-  const lateLabel = Number.isFinite(latePct)
-    ? `%${latePct % 1 === 0 ? latePct.toFixed(0) : latePct}`
-    : "%5";
-
-  const aidatDue = firstDue(statement.rows, "aidatDueDate") || firstDue(statement.rows, "dueDate");
-  const yakitDue = firstDue(statement.rows, "yakitDueDate") || aidatDue;
-  const digerDue = firstDue(statement.rows, "digerDueDate");
-
-  let sumAidat = 0;
-  let sumAdj = 0;
-  let sumYakit = 0;
-  let sumDiger = 0;
-  let sumTotal = 0;
-
-  const rowsHtml = statement.rows
-    .map((row) => {
-      const adj = Number(row.faiz) + Number(row.devirAmount);
-      const diger = Number(row.digerAmount);
-      const yakit = Number(row.yakitAmount);
-      const aidatNum = Number(row.aidatAmount);
-      const total = aidatNum + adj + yakit + diger;
-      sumAidat += aidatNum;
-      sumAdj += adj;
-      sumYakit += yakit;
-      sumDiger += diger;
-      sumTotal += total;
-
-      const aidatLabel = aidatCellLabel(row);
-      const note = (row.note ?? "").trim();
-
-      return `<tr>
-        <td class="c">${escapeHtml(row.unitNo)}</td>
-        <td class="r">${escapeHtml(aidatLabel)}</td>
-        <td class="r">${formatMoneyTr(adj)}</td>
-        <td class="r">${formatMoneyTr(yakit)}</td>
-        <td class="r">${formatMoneyTr(diger)}</td>
-        <td class="r b">${formatMoneyTr(total, false)}</td>
-        <td class="note">${escapeHtml(note)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  const bankLine = bankAccount
-    ? `${escapeHtml(bankAccount.bankName)} hesap no :${accountNoFromIban(bankAccount.iban)} İban : ${formatIbanSpaced(bankAccount.iban)}`
-    : "site banka hesabına";
-
-  const siteTitle = escapeHtml(kurumName).toLocaleUpperCase("tr-TR");
-  const periodTitle = escapeHtml(formatPeriodLabel(period).toLocaleUpperCase("tr-TR"));
-
-  const html = `<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <title>${siteTitle} AİDAT ÖDEME LİSTESİ — ${periodTitle}</title>
-  <style>
-    @page { size: A4 landscape; margin: 10mm; }
-    * { box-sizing: border-box; }
-    body {
-      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-      color: #111;
-      margin: 0;
-      padding: 8px 12px 16px;
-      font-size: 11px;
-    }
-    h1 {
-      margin: 0;
-      text-align: center;
-      font-size: 16px;
-      letter-spacing: 0.02em;
-    }
-    h2 {
-      margin: 2px 0 10px;
-      text-align: center;
-      font-size: 15px;
-      font-weight: 700;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    th, td {
-      border: 1px solid #222;
-      padding: 3px 4px;
-      vertical-align: middle;
-    }
-    th {
-      background: #f3f3f3;
-      font-size: 9px;
-      line-height: 1.2;
-      text-align: center;
-      font-weight: 700;
-    }
-    td.c { text-align: center; font-weight: 600; width: 42px; }
-    td.r { text-align: right; white-space: nowrap; }
-    td.b { font-weight: 700; }
-    td.note { font-size: 9px; text-align: left; }
-    tfoot td { font-weight: 700; background: #f7f7f7; }
-    .notes {
-      margin-top: 10px;
-      font-size: 9.5px;
-      line-height: 1.35;
-      text-align: justify;
-    }
-    .notes strong { font-weight: 700; }
-    @media print {
-      body { padding: 0; }
-      thead { display: table-header-group; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${siteTitle} AİDAT ÖDEME LİSTESİ</h1>
-  <h2>${periodTitle}</h2>
-  <table>
-    <colgroup>
-      <col style="width:5%" />
-      <col style="width:11%" />
-      <col style="width:14%" />
-      <col style="width:12%" />
-      <col style="width:14%" />
-      <col style="width:12%" />
-      <col style="width:32%" />
-    </colgroup>
-    <thead>
-      <tr>
-        <th>DAİRE<br/>NO</th>
-        <th>AİDAT<br/><span style="font-weight:600">SON ÖDEME TARİHİ</span><br/>${aidatDue || "—"}</th>
-        <th>${lateLabel} GECİKME<br/>TAZMİNATLARI<br/>VEYA EKSİK/FAZLA<br/>ÖDEMELER</th>
-        <th>YAKIT<br/><span style="font-weight:600">SON ÖDEME TARİHİ</span><br/>${yakitDue || "—"}</th>
-        <th>Asansör Borç Kapatma+<br/>Diğer Bakımlar${digerDue ? `<br/>Son Ödeme (${digerDue})` : ""}</th>
-        <th>TOPLAM<br/>ÖDENECEK<br/>TUTAR</th>
-        <th>AÇIKLAMA</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsHtml}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td class="c">Σ</td>
-        <td class="r">${formatMoneyTr(sumAidat, false)}</td>
-        <td class="r">${formatMoneyTr(sumAdj, false)}</td>
-        <td class="r">${formatMoneyTr(sumYakit, false)}</td>
-        <td class="r">${formatMoneyTr(sumDiger, false)}</td>
-        <td class="r">${formatMoneyTr(sumTotal, false)}</td>
-        <td></td>
-      </tr>
-    </tfoot>
-  </table>
-  <div class="notes">
-    <strong>AÇIKLAMA:</strong>
-    1- Ödemelerin ${escapeHtml(kurumName)} banka hesabına (${bankLine}) yatırılması önemle rica olunur.
-    Elden ödeme yapılmaması muhasebenin takibi açısından önem arz etmektedir.
-    2- Aidatların son ödeme tarihi her ayın 10. günü olarak belirlenmiştir. Bu tarihe kadar ödeme yapmayan
-    site sakinlerinden, 634 sayılı Kat Mülkiyeti Kanunu 20. maddesi c bendine istinaden ${lateLabel} gecikme tazminatı
-    hesaplanıp yukarıda belirtilmiştir.
-    3- Gecikme zammı uygulanan site sakinleri, bir sonraki devam eden ayda da ödenmeyen her gün için gecikme zammı
-    uygulaması ilgili mevzuat hükmü gereğince devam edecektir.
-    4- Yakıt ödemesini zamanında yapmayan site sakinlerinden dolayı, site aboneliğine gaz dağıtım şirketi tarafından
-    uygulanacak maddi cezai müeyyideler, ödemeyi zamanında yapmayan site sakinlerine aynen yansıtılacaktır.
-  </div>
-</body>
-</html>`;
-
-  printHtmlDocument(html, `${period.replace("-", "_")}_aidat_listesi`);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function saveReportLayout(siteId: number | undefined, layout: ReportLayout): void {
+  try {
+    localStorage.setItem(reportLayoutKey(siteId), JSON.stringify(layout));
+  } catch {
+    // Düzen kaydedilemese de rapor bu oturumda yazdırılabilir.
+  }
 }
 
 export function ChargesPage() {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"create" | "detail">("create");
+  const [reportEditorOpen, setReportEditorOpen] = useState(false);
   const [period, setPeriod] = useState(defaultPeriod);
   const [publishDate, setPublishDate] = useState(`${defaultPeriod()}-01`);
   const [dueDate, setDueDate] = useState(nextMonthDay(defaultPeriod(), 10));
@@ -917,6 +718,25 @@ export function ChargesPage() {
   }
 
   const statement = statementQuery.data;
+  const reportInput: ReportInput | null =
+    statement && statement.rows.length > 0 && detailPeriod
+      ? {
+          kurumName: kurumQuery.data?.name ?? "Site",
+          period: detailPeriod,
+          periodLabel: formatPeriodLabel(detailPeriod),
+          lateFeeRatePercent: statement.lateFeeRatePercent,
+          rows: statement.rows,
+          bankAccount: bankAccountsQuery.data?.[0] ?? null,
+        }
+      : null;
+
+  function printReport(layout: ReportLayout): void {
+    if (!reportInput) return;
+    printHtmlDocument(
+      buildPeriodReportHtml(reportInput, layout),
+      `${reportInput.period.replace("-", "_")}_aidat_listesi`,
+    );
+  }
   const availableUnits = availableUnitsQuery.data?.items ?? [];
   const selectedPeriodSummary = useMemo(
     () => (periodsQuery.data?.items ?? []).find((p) => p.period === detailPeriod) ?? null,
@@ -1005,7 +825,7 @@ export function ChargesPage() {
                   className={`w-full text-left rounded-[12px] border px-3 py-2.5 transition ${
                     selected
                       ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[inset_3px_0_0_var(--accent)]"
-                      : "border-transparent hover:bg-[rgba(15,122,108,0.06)]"
+                      : "border-transparent hover:bg-[var(--accent-tint)]"
                   }`}
                   onClick={() => openDetail(p.period)}
                 >
@@ -1314,24 +1134,25 @@ export function ChargesPage() {
                     Yenile
                   </button>
                   <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    disabled={!reportInput}
+                    title="Kolonları, başlıkları ve açıklamayı düzenle"
+                    onClick={() => setReportEditorOpen(true)}
+                  >
+                    Raporu Düzenle
+                  </button>
+                  <button
                     className="btn btn-warm btn-sm"
                     type="button"
-                    disabled={!statement || statement.rows.length === 0 || !detailPeriod}
+                    disabled={!reportInput}
                     title="Dönem aidat listesini PDF olarak yazdır"
-                    onClick={() => {
-                      if (!statement || !detailPeriod) return;
-                      printPeriodStatement({
-                        kurumName: kurumQuery.data?.name ?? "Site",
-                        period: detailPeriod,
-                        statement,
-                        bankAccount: bankAccountsQuery.data?.[0] ?? null,
-                      });
-                    }}
+                    onClick={() => printReport(loadReportLayout(siteId))}
                   >
                     Dönem Yazdır
                   </button>
                   <button
-                    className="btn btn-sm"
+                    className="btn btn-danger btn-sm"
                     type="button"
                     disabled={!siteId || !detailPeriod || deletePeriodMutation.isPending}
                     title={
@@ -1345,6 +1166,23 @@ export function ChargesPage() {
                   </button>
                 </div>
               </div>
+
+              {reportEditorOpen && reportInput ? (
+                <ReportEditorModal
+                  input={reportInput}
+                  layout={loadReportLayout(siteId)}
+                  onClose={() => setReportEditorOpen(false)}
+                  onSave={(layout) => {
+                    saveReportLayout(siteId, layout);
+                    setReportEditorOpen(false);
+                  }}
+                  onPrint={(layout) => {
+                    saveReportLayout(siteId, layout);
+                    setReportEditorOpen(false);
+                    printReport(layout);
+                  }}
+                />
+              ) : null}
 
               {deleteConfirmOpen ? (
                 <div className="surface-solid p-4 border border-[var(--danger)] space-y-3 rise">
