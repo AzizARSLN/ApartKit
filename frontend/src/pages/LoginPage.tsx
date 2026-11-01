@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { BuildingFacade } from "../components/BuildingFacade";
+import { WindowGrid } from "../components/WindowGrid";
 
 export function LoginPage() {
   const { session, login } = useAuth();
@@ -28,8 +28,12 @@ export function LoginPage() {
 
   return (
     <div className="login-page">
-      <main className="login-main">
+      <WindowGrid level={0} />
+      <div className="login-intro">
         <div className="brand login-wordmark">ApartKit</div>
+        <p>Aidat, banka ekstresi, talepler. Apartmanın işleri tek defterde.</p>
+      </div>
+      <main className="login-sheet">
         <form onSubmit={onSubmit} className="login-form">
           <h1>Giriş yap</h1>
           <label className="login-field">
@@ -69,10 +73,6 @@ export function LoginPage() {
           </button>
         </form>
       </main>
-      <aside className="login-poster" aria-hidden>
-        <p>Aidat, banka ekstresi, talepler. Apartmanın işleri tek defterde.</p>
-        <BuildingFacade />
-      </aside>
     </div>
   );
 }
