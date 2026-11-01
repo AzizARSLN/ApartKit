@@ -3,26 +3,26 @@
 :root {
   color-scheme: light;
   --bg: #f5f4ef;
-  --bg-soft: #ebe9e2;
-  --surface: #ffffff;
+  --bg-soft: rgba(23, 22, 31, 0.06);
+  --surface: rgba(255, 255, 255, 0.62);
   --surface-solid: #ffffff;
-  --surface-sunken: #f1f0ea;
+  --surface-sunken: rgba(23, 22, 31, 0.04);
   --ink: #17161f;
   --ink-soft: #3f3d4d;
-  --muted: #6d6b7a;
+  --muted: #62606f;
   --accent: #5546e8;
   --accent-strong: #4133c7;
-  --accent-soft: #eceaff;
+  --accent-soft: rgba(85, 70, 232, 0.12);
   --accent-tint: rgba(85, 70, 232, 0.07);
   --on-accent: #ffffff;
   --warm: #e2502c;
   --warm-strong: #c23f1e;
-  --warm-soft: #ffe9e2;
+  --warm-soft: rgba(226, 80, 44, 0.13);
   --warm-ink: #9a3114;
-  --danger: #c9264b;
-  --danger-soft: #fde7ec;
-  --ok: #0b8467;
-  --ok-soft: #dcf6ee;
+  --danger: #b71f43;
+  --danger-soft: rgba(201, 38, 75, 0.11);
+  --ok: #08705a;
+  --ok-soft: rgba(11, 132, 103, 0.13);
   --success: var(--ok);
   --line: rgba(23, 22, 31, 0.11);
   --border: var(--line);
@@ -45,28 +45,28 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #100f17;
-  --bg-soft: #191823;
-  --surface: #1a1924;
+  --bg-soft: rgba(255, 255, 255, 0.06);
+  --surface: rgba(255, 255, 255, 0.045);
   --surface-solid: #1a1924;
-  --surface-sunken: #14131c;
+  --surface-sunken: rgba(255, 255, 255, 0.03);
   --ink: #f2f1f7;
   --ink-soft: #cbc9d8;
   --muted: #9a98aa;
   --accent: #8d81ff;
   --accent-strong: #b1a9ff;
-  --accent-soft: #2a2650;
+  --accent-soft: rgba(141, 129, 255, 0.18);
   --accent-tint: rgba(141, 129, 255, 0.1);
   --on-accent: #12101f;
   --chart-1: #7f72f2;
   --chart-2: #e45f3d;
   --warm: #ff7a57;
   --warm-strong: #ff9477;
-  --warm-soft: #3c2018;
+  --warm-soft: rgba(255, 122, 87, 0.16);
   --warm-ink: #ffb8a3;
   --danger: #ff6d8c;
-  --danger-soft: #3d1a25;
+  --danger-soft: rgba(255, 109, 140, 0.15);
   --ok: #41d3ac;
-  --ok-soft: #12332b;
+  --ok-soft: rgba(65, 211, 172, 0.14);
   --line: rgba(242, 241, 247, 0.12);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.6);
@@ -114,6 +114,10 @@ a {
 
 .surface {
   box-shadow: var(--shadow);
+}
+
+.surface[role="dialog"] {
+  background: var(--surface-solid);
 }
 
 .btn {
@@ -204,6 +208,11 @@ a {
   font-size: 0.92rem;
 }
 
+.select option {
+  background: var(--surface-solid);
+  color: var(--ink);
+}
+
 .input:focus,
 .select:focus {
   outline: 2px solid var(--accent-tint);
@@ -289,7 +298,7 @@ table.data th {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: var(--surface-sunken);
+  background: var(--surface-solid);
 }
 
 table.data td.money,
@@ -343,7 +352,7 @@ table.data tbody tr.is-selected:hover {
   flex-direction: column;
   width: 100%;
   max-height: calc(100vh - 2rem);
-  background: var(--surface);
+  background: var(--surface-solid);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
