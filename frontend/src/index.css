@@ -482,29 +482,120 @@ table.data tbody tr.is-selected:hover {
   gap: 1rem;
 }
 
-.money-figure {
-  margin-top: 0.3rem;
-  font-size: clamp(1.15rem, 2vw, 1.6rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
+.dash {
+  --chart-1: var(--muted);
+  gap: 2.25rem;
+  max-width: 1080px;
+}
+
+.dash-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 2px solid var(--ink);
+}
+
+.dash-header h1 {
+  margin-top: 0.1rem;
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+
+.dash-label {
+  min-height: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.dash-summary {
+  display: grid;
+  gap: 2rem;
+}
+
+.dash-collected {
+  margin: 0.15rem 0 0.9rem;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 620;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
 }
 
-.flow-steps {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.dash-progress {
+  height: 8px;
+  background: var(--bg-soft);
 }
 
-.flow-step {
+.dash-progress i {
+  display: block;
+  height: 100%;
+  background: var(--warm);
+}
+
+.dash-facts {
+  margin: 0;
+}
+
+.dash-facts > div {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 0.9rem;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.dash-facts dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.dash-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-columns {
+  display: grid;
+  gap: 2.25rem;
+}
+
+.dash-heading {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--ink);
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.dash-more {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dash-more:hover {
+  color: var(--ink);
+}
+
+.dash-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+
+.dash-task:hover {
+  color: var(--warm-strong);
 }
 
 .chart-charged {
@@ -592,14 +683,114 @@ table.data tbody tr.is-selected:hover {
   background: var(--chart-1);
 }
 
-.login-hero {
-  background: var(--accent);
-  color: var(--on-accent);
+.login-page {
+  --accent: var(--ink);
+  --accent-strong: var(--ink-soft);
+  --accent-tint: var(--line);
+  --on-accent: var(--bg);
+  min-height: 100vh;
 }
 
-@media (min-width: 640px) {
-  .flow-steps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+.login-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 1.5rem 16px 3rem;
+}
+
+.login-wordmark {
+  font-size: 1.2rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 340px;
+  margin: auto 0;
+  padding-top: 2rem;
+}
+
+.login-form h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.login-show-password {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.login-submit {
+  margin-top: 0.25rem;
+  padding-block: 0.7rem;
+}
+
+.login-poster {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .login-page {
+    display: grid;
+    grid-template-columns: minmax(420px, 5fr) 7fr;
+  }
+
+  .login-main {
+    padding: 2rem 3rem 3rem clamp(3rem, 8vw, 7rem);
+  }
+
+  .login-poster {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    min-height: 100vh;
+    padding: 2rem 2.5rem;
+    background: #e2502c;
+    color: #17161f;
+  }
+
+  .login-poster p {
+    position: relative;
+    max-width: 26rem;
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+
+  .login-facade {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 78%;
+  }
+}
+
+@media (min-width: 760px) {
+  .dash-summary {
+    grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
+    align-items: end;
+    gap: 3rem;
+  }
+
+  .dash-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3rem;
   }
 }
 
