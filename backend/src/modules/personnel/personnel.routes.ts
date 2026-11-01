@@ -6,12 +6,15 @@ import { employees, leaveRequests, persons } from "../../db/schema/index.js";
 import { writeAudit } from "../../shared/audit/audit.js";
 import { authenticate, getTenantId, requirePermission } from "../../shared/auth/auth-guards.js";
 import { Permission } from "../../shared/auth/rbac.js";
+import { assertSiteInTenant } from "../../shared/auth/site-scope.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { MoneyStringSchema } from "../../shared/utils/money.js";
 
 const CreateEmployeeSchema = z.object({
   siteId: z.number().int().positive(),
-  personId: z.number().int().positive(),
+  personId: z.number().int().positive().optional(),
+  firstName: z.string().trim().min(1).max(100).optional(),
+  lastName: z.string().trim().min(1).max(100).optional(),
   position: z.string().min(1).max(128),
   hireDate: z.coerce.date(),
   leaveDate: z.coerce.date().optional().nullable(),
@@ -45,7 +48,51 @@ export async function personnelRoutes(app: FastifyInstance): Promise<void> {
         ? and(eq(employees.tenantId, tenantId), eq(employees.siteId, query.siteId))
         : eq(employees.tenantId, tenantId);
 
-      return db.select().from(employees).where(where).orderBy(desc(employees.hireDate));
+      return db
+        .select({
+          id: employees.id,
+          siteId: employees.siteId,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          leaveDate: employees.leaveDate,
+          status: employees.status,
+          firstName: persons.firstName,
+          lastName: persons.lastName,
+        })
+        .from(employees)
+        .innerJoin(persons, eq(persons.id, employees.personId))
+        .where(where)
+        .orderBy(desc(employees.hireDate));
+    },
+  );
+
+  app.get(
+    "/leave-requests",
+    { preHandler: [authenticate, requirePermission(Permission.EMPLOYEE_MANAGE)] },
+    async (request) => {
+      const tenantId = getTenantId(request);
+      const { siteId } = z
+        .object({ siteId: z.coerce.number().int().positive() })
+        .parse(request.query);
+
+      return db
+        .select({
+          id: leaveRequests.id,
+          employeeId: leaveRequests.employeeId,
+          leaveType: leaveRequests.leaveType,
+          startDate: leaveRequests.startDate,
+          endDate: leaveRequests.endDate,
+          dayCount: leaveRequests.dayCount,
+          reason: leaveRequests.reason,
+          status: leaveRequests.status,
+          firstName: persons.firstName,
+          lastName: persons.lastName,
+        })
+        .from(leaveRequests)
+        .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
+        .innerJoin(persons, eq(persons.id, employees.personId))
+        .where(and(eq(employees.tenantId, tenantId), eq(employees.siteId, siteId)))
+        .orderBy(desc(leaveRequests.startDate));
     },
   );
 
@@ -56,37 +103,57 @@ export async function personnelRoutes(app: FastifyInstance): Promise<void> {
       const tenantId = getTenantId(request);
       const body = CreateEmployeeSchema.parse(request.body);
 
-      const [person] = await db
-        .select()
-        .from(persons)
-        .where(and(eq(persons.id, body.personId), eq(persons.tenantId, tenantId)))
-        .limit(1);
-      if (!person) throw new AppError("NOT_FOUND", "Kişi bulunamadı.", 404);
+      await assertSiteInTenant(tenantId, body.siteId);
+      if (body.personId == null && (!body.firstName || !body.lastName)) {
+        throw new AppError("VALIDATION_ERROR", "Kişi seçin veya ad soyad girin.", 400);
+      }
+      const existingPersonId = body.personId;
 
-      const [created] = await db
-        .insert(employees)
-        .values({
+      if (existingPersonId != null) {
+        const [person] = await db
+          .select()
+          .from(persons)
+          .where(and(eq(persons.id, existingPersonId), eq(persons.tenantId, tenantId)))
+          .limit(1);
+        if (!person) throw new AppError("NOT_FOUND", "Kişi bulunamadı.", 404);
+      }
+
+      const created = await db.transaction(async (tx) => {
+        let personId = existingPersonId;
+        if (personId == null) {
+          const [person] = await tx
+            .insert(persons)
+            .values({ tenantId, firstName: body.firstName!, lastName: body.lastName! })
+            .returning({ id: persons.id });
+          personId = person!.id;
+        }
+
+        const [employee] = await tx
+          .insert(employees)
+          .values({
+            tenantId,
+            siteId: body.siteId,
+            personId,
+            position: body.position,
+            hireDate: body.hireDate,
+            leaveDate: body.leaveDate ?? null,
+            salary: body.salary ?? null,
+            iban: body.iban ?? null,
+            status: body.status,
+            createdBy: request.authUser.id,
+          })
+          .returning();
+
+        await writeAudit(tx, {
           tenantId,
           siteId: body.siteId,
-          personId: body.personId,
-          position: body.position,
-          hireDate: body.hireDate,
-          leaveDate: body.leaveDate ?? null,
-          salary: body.salary ?? null,
-          iban: body.iban ?? null,
-          status: body.status,
-          createdBy: request.authUser.id,
-        })
-        .returning();
-
-      await writeAudit(db, {
-        tenantId,
-        siteId: body.siteId,
-        userId: request.authUser.id,
-        action: "EMPLOYEE_CREATE",
-        entityType: "employee",
-        entityId: created.id,
-        newData: created,
+          userId: request.authUser.id,
+          action: "EMPLOYEE_CREATE",
+          entityType: "employee",
+          entityId: employee!.id,
+          newData: employee,
+        });
+        return employee!;
       });
 
       return created;
