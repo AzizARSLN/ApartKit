@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { createLoginThrottle } from "./login-throttle.js";
 import { db } from "../../db/client.js";
 import { refreshTokens, userRoles, users } from "../../db/schema/index.js";
 import { writeAudit } from "../../shared/audit/audit.js";
@@ -55,9 +56,20 @@ async function loadUserRoles(userId: number, tenantId: number) {
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   const env = loadEnv();
+  const loginThrottle = createLoginThrottle();
 
   app.post("/auth/login", async (request) => {
     const body = LoginSchema.parse(request.body);
+    const throttleKey = `${request.ip}|${body.email.toLowerCase()}`;
+    const retryAfterSeconds = loginThrottle.retryAfterSeconds(throttleKey);
+    if (retryAfterSeconds > 0) {
+      throw new AppError(
+        "TOO_MANY_ATTEMPTS",
+        "Çok fazla hatalı giriş denemesi. Lütfen daha sonra tekrar deneyin.",
+        429,
+        { retryAfterSeconds },
+      );
+    }
     const candidates = await db
       .select()
       .from(users)
@@ -76,14 +88,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
           tenants: candidates.map((c) => c.tenantId),
         });
       }
+      loginThrottle.recordFailure(throttleKey);
       throw new AppError("INVALID_CREDENTIALS", "E-posta veya şifre hatalı.", 401);
     }
 
     const ok = await verifyPassword(user.passwordHash, body.password);
     if (!ok) {
+      loginThrottle.recordFailure(throttleKey);
       throw new AppError("INVALID_CREDENTIALS", "E-posta veya şifre hatalı.", 401);
     }
 
+    loginThrottle.clear(throttleKey);
     const { roles, siteIds } = await loadUserRoles(user.id, user.tenantId);
     const accessToken = await app.jwt.sign(
       {
