@@ -28,7 +28,7 @@ export function LoginPage() {
 
   return (
     <div className="login-page">
-      <WindowGrid level={0} />
+      <WindowGrid level={email.length + password.length} />
       <div className="login-intro">
         <div className="brand login-wordmark">ApartKit</div>
         <p>Aidat, banka ekstresi, talepler. Apartmanın işleri tek defterde.</p>

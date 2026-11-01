@@ -698,6 +698,7 @@ table.data tbody tr.is-selected:hover {
 .login-windows i {
   border-radius: 3px;
   background: #1e1d29;
+  transition: background 320ms ease;
 }
 
 .login-windows i.is-lit {
@@ -896,6 +897,10 @@ table.data tbody tr.is-selected:hover {
   .rise,
   .skeleton {
     animation: none;
+  }
+
+  .login-windows i {
+    transition: none;
   }
 }
 
