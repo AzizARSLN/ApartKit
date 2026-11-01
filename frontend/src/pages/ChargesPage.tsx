@@ -1336,23 +1336,23 @@ export function ChargesPage() {
                     disabled={!siteId || !detailPeriod || deletePeriodMutation.isPending}
                     title={
                       selectedPeriodSummary?.canDelete === false
-                        ? "Ödeme hareketi olan dönem silinemez"
-                        : "Dönemdeki tüm tahakkukları sil"
+                        ? "Ödeme hareketi olan dönem iptal edilemez"
+                        : "Dönemdeki tüm tahakkukları iptal et"
                     }
                     onClick={requestDeletePeriod}
                   >
-                    {deletePeriodMutation.isPending ? "Siliniyor…" : "Dönemi sil"}
+                    {deletePeriodMutation.isPending ? "İptal ediliyor…" : "Dönemi iptal et"}
                   </button>
                 </div>
               </div>
 
               {deleteConfirmOpen ? (
                 <div className="surface-solid p-4 border border-[var(--danger)] space-y-3 rise">
-                  <p className="font-semibold text-[var(--danger)]">Dönemi silme onayı</p>
+                  <p className="font-semibold text-[var(--danger)]">Dönem iptal onayı</p>
                   <p className="text-sm">
                     <strong>{detailPeriod ? formatPeriodLabel(detailPeriod) : "Dönem"}</strong>{" "}
-                    döneminin tüm tahakkuk kayıtları kalıcı silinecek ve sol listeden kalkacak. Aynı
-                    dönemi sonra yeniden oluşturabilirsiniz.
+                    döneminin tüm tahakkukları iptal edilecek ve sol listeden kalkacak. Kayıtlar denetim
+                    için saklanır; aynı dönemi sonra yeniden oluşturabilirsiniz.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -1361,7 +1361,7 @@ export function ChargesPage() {
                       disabled={deletePeriodMutation.isPending}
                       onClick={() => deletePeriodMutation.mutate()}
                     >
-                      {deletePeriodMutation.isPending ? "Siliniyor…" : "Evet, dönemi sil"}
+                      {deletePeriodMutation.isPending ? "İptal ediliyor…" : "Evet, dönemi iptal et"}
                     </button>
                     <button
                       className="btn btn-ghost btn-sm"

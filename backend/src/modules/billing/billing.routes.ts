@@ -662,55 +662,6 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
         );
       }
 
-      // Önceki soft-iptal artıkları varsa (hareket yoksa) temizle; yeniden oluşturma bozulmasın.
-      const leftoverMovement = await pool.query<{ value: string }>(
-        `
-        SELECT COUNT(*)::text AS value
-        FROM payment_allocation pa
-        JOIN charge c ON c.id = pa.charge_id
-        WHERE c.tenant_id = $1
-          AND c.site_id = $2
-          AND c.period = $3
-        `,
-        [tenantId, body.siteId, body.period],
-      );
-      if (Number(leftoverMovement.rows[0]?.value ?? 0) === 0) {
-        await db.transaction(async (tx) => {
-          const leftoverCharges = await tx
-            .select({ id: charges.id })
-            .from(charges)
-            .where(
-              and(
-                eq(charges.tenantId, tenantId),
-                eq(charges.siteId, body.siteId),
-                eq(charges.period, body.period),
-                inArray(charges.status, ["CANCELLED"]),
-              ),
-            );
-          if (leftoverCharges.length > 0) {
-            await tx
-              .delete(charges)
-              .where(inArray(charges.id, leftoverCharges.map((c) => c.id)));
-          }
-          const leftoverBatches = await tx
-            .select({ id: chargeBatches.id })
-            .from(chargeBatches)
-            .where(
-              and(
-                eq(chargeBatches.tenantId, tenantId),
-                eq(chargeBatches.siteId, body.siteId),
-                eq(chargeBatches.period, body.period),
-                eq(chargeBatches.status, "CANCELLED"),
-              ),
-            );
-          if (leftoverBatches.length > 0) {
-            await tx
-              .delete(chargeBatches)
-              .where(inArray(chargeBatches.id, leftoverBatches.map((b) => b.id)));
-          }
-        });
-      }
-
       const aidatType = await ensureChargeType(tenantId, "AIDAT", "Aidat", "DUES");
       const yakitType = await ensureChargeType(tenantId, "YAKIT", "Yakıt", "FUEL");
       const digerType = await ensureChargeType(tenantId, "DIGER", "Site İşi / Diğer", "EXTRA");
@@ -1417,30 +1368,44 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
             ),
           );
 
-        if (periodCharges.length === 0 && periodBatches.length === 0) {
-          throw new AppError("NOT_FOUND", "Bu dönemde silinecek kayıt yok.", 404);
+        const activeCharges = periodCharges.filter((c) => c.status !== "CANCELLED");
+        const activeBatches = periodBatches.filter((b) => b.status !== "CANCELLED");
+        if (activeCharges.length === 0 && activeBatches.length === 0) {
+          throw new AppError("NOT_FOUND", "Bu dönemde iptal edilecek kayıt yok.", 404);
         }
 
-        const chargeIds = periodCharges.map((c) => c.id);
+        // Finansal kayıt fiziksel silinmez: dönem iptal edilir, aynı dönem yeniden oluşturulabilir.
+        const chargeIds = activeCharges.map((c) => c.id);
         if (chargeIds.length > 0) {
-          await tx.delete(charges).where(inArray(charges.id, chargeIds));
+          await tx
+            .update(charges)
+            .set({
+              status: "CANCELLED",
+              openAmount: "0.00",
+              updatedAt: new Date(),
+              updatedBy: request.authUser.id,
+            })
+            .where(inArray(charges.id, chargeIds));
         }
 
-        const batchIds = periodBatches.map((b) => b.id);
+        const batchIds = activeBatches.map((b) => b.id);
         if (batchIds.length > 0) {
-          await tx.delete(chargeBatches).where(inArray(chargeBatches.id, batchIds));
+          await tx
+            .update(chargeBatches)
+            .set({ status: "CANCELLED" })
+            .where(inArray(chargeBatches.id, batchIds));
         }
 
         await writeAudit(tx, {
           tenantId,
           siteId: query.siteId,
           userId: request.authUser.id,
-          action: "PERIOD_DELETE",
+          action: "PERIOD_CANCEL",
           entityType: "period",
           entityId: period,
           oldData: {
             period,
-            charges: periodCharges.map((c) => ({
+            charges: activeCharges.map((c) => ({
               id: c.id,
               unitId: c.unitId,
               amount: c.amount,
@@ -1448,7 +1413,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
               status: c.status,
               chargeTypeId: c.chargeTypeId,
             })),
-            batches: periodBatches.map((b) => ({
+            batches: activeBatches.map((b) => ({
               id: b.id,
               status: b.status,
               totalAmount: b.totalAmount,
@@ -1457,16 +1422,14 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
           },
           newData: {
             period,
-            deletedChargeCount: periodCharges.length,
-            deletedBatchCount: periodBatches.length,
+            cancelledChargeCount: activeCharges.length,
+            cancelledBatchCount: activeBatches.length,
           },
         });
 
         return {
-          deletedChargeCount: periodCharges.length,
-          deletedBatchCount: periodBatches.length,
-          cancelledChargeCount: periodCharges.length,
-          cancelledBatchCount: periodBatches.length,
+          cancelledChargeCount: activeCharges.length,
+          cancelledBatchCount: activeBatches.length,
         };
       });
 
