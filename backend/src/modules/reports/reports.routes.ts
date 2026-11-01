@@ -31,8 +31,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
             FROM charge c
             WHERE c.tenant_id = $1
               AND c.site_id = $2
-              AND c.status <> 'CANCELLED'
-              AND date_trunc('month', c.created_at) = date_trunc('month', now())
+              AND c.status NOT IN ('CANCELLED', 'CARRIED_FORWARD')
+              AND c.period = to_char(now(), 'YYYY-MM')
           ), '0') AS charge_total_this_month,
           COALESCE((
             SELECT SUM(p.amount)::text
